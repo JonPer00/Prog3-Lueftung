@@ -1,106 +1,135 @@
-# Lüftungs-Reminder – ESP32 mit CO₂-, Temperatur- & Feuchtigkeitssensor + 2.9" Display
+# Lüftungs-Reminder – ESP32-C6 mit SCD30, OLED & Bluetooth LE
 
-Dieses Projekt implementiert ein smartes Lüftungs-Reminder-System auf Basis eines **ESP32**.  
-Es misst **CO₂**, **Temperatur** und **Luftfeuchtigkeit** und stellt die Werte auf einem **2.9"-I²C-Display** dar.  
-Ab definierten Grenzwerten erinnert das System automatisch daran, den Raum zu lüften.
+Dieses Projekt implementiert ein **lokales Lüftungs-Reminder-System** auf Basis eines  
+**ESP32-C6 mit MicroPython**.
+
+Der ESP32 misst **CO₂**, **Temperatur** und **Luftfeuchtigkeit** über einen  
+**Sensirion SCD30** (I²C) und zeigt die Werte auf einem **SSD1306 OLED (128×64, I²C)** an.
+
+Ab definierten CO₂-Grenzwerten wird der Nutzer durch **RGB-LEDs** und einen  
+**akustischen Alarm (Buzzer)** auf schlechte Luftqualität hingewiesen.  
+Zusätzlich werden die Messwerte lokal per **Bluetooth Low Energy (BLE)** an ein Smartphone übertragen  
+(z. B. mit der App **nRF Connect oder LightBlue**).
 
 ---
 
 ## 🚀 Projektziele
 
-- Regelmäßige CO₂-/Klimaüberwachung  
-- Visuelle Darstellung auf einem 2.9" Display  
-- Einfach verständliche Lüftungsindikatoren  
-- Klare Trennung zwischen Backend (ESP32) und Frontend (Streamlit)
+- Regelmäßige Überwachung von CO₂, Temperatur und Luftfeuchtigkeit  
+- Lokale Anzeige der Messwerte auf einem OLED-Display  
+- Verständliche Lüftungsindikatoren (LED-Farben + Text)  
+- Akustischer Alarm bei kritischen CO₂-Werten  
+- Lokale, kabellose Datenübertragung per Bluetooth 
 
 ---
 
 ## 👥 Verantwortlichkeiten
 
-### Meine Aufgaben (Software / ESP32)
-- Sensor-Ansteuerung via **I²C**
-- Datenerfassung (CO₂, Temperatur, Feuchte)
-- Display-Rendering auf dem **2.9" I²C-Display**
-- Logik für Lüftungs-Reminder
-- Bereitstellung von Messdaten für Streamlit (optional)
+### Meine Aufgaben - Jonathan (Firmware)
 
-### Andere Teammitglieder
-- Streamlit Dashboard / Datenvisualisierung  
-- UI/Design  
-- Präsentation im Frontend
+- Initialisierung und Ansteuerung aller I²C-Geräte  
+- Kommunikation mit dem SCD30 inkl. CRC-Prüfung gemäß Datenblatt  
+- Auslesen und Umwandlung der Messdaten (IEEE-754 Float)  
+- Anzeige der Messwerte und Statusinformationen auf dem OLED  
+- Implementierung der Lüftungs-Logik  
+- Steuerung von RGB-LED und Buzzer  
+- Alarm-Logik mit einmaligem 3-Sekunden-Signal pro Alarmphase  
+- Quittierung des Alarms über einen Button  
+- Implementierung eines BLE-GATT-Servers zur Datenübertragung
+
+### Weitere mögliche Aufgaben (Team)
+
+- Dokumentation / Präsentation  
+- Gehäuse-Design  
+- Mobile App (statt nRF Connect)
 
 ---
 
 ## 🛠️ Hardware
 
-- **ESP32 Dev Board**
-- **CO₂-/Temp-/Feuchte-Sensor**  
-  *(z. B. SCD41, SCD30 oder vergleichbar)*
-- **2.9" I²C Display**
+- **ESP32-C6** (MicroPython: `ESP32-C6`)
+- **Sensirion SCD30**  
+  - CO₂ / Temperatur / Luftfeuchtigkeit  
+  - I²C-Adresse: `0x61`
+- **SSD1306 OLED Display**  
+  - 128×64 Pixel  
+  - I²C-Adresse: meist `0x3C`
+- **RGB-LED** 
+- **Aktiver Buzzer**
+- **Taster (Button)** zur Alarm-Quittierung
 - USB-Stromversorgung
+
+---
+
+## 🔌 Pinbelegung (Firmware-Stand)
+
+### I²C
+- SDA: GPIO **4**
+- SCL: GPIO **5**
+
+### RGB-LED
+- Rot: GPIO **15**
+- Grün: GPIO **23**
+- Blau: GPIO **22**
+
+### Buzzer
+- GPIO **21**
+
+### Button (Quittierung)
+- GPIO **18**  
+  - Intern Pull-Up aktiviert  
+  - Gedrückt = LOW
 
 ---
 
 ## 📦 Softwarefunktionen
 
-- Initialisierung aller I²C-Geräte  
-- Periodische Sensormessung  
-- Fehlererkennung („Sensor nicht gefunden“)  
-- Dynamische Anzeige (CO₂, Temperatur, Feuchtigkeit, Status)  
-- Logik zur Lüftungsempfehlung  
-- Möglichkeit zur späteren Web-Schnittstelle (Streamlit)
+### Sensor (SCD30)
+
+- Start der kontinuierlichen Messung (`0x0010`)
+- Deaktivierung der automatischen Selbstkalibrierung (ASC) (`0x5306`)
+- Setzen eines Temperatur-Offsets in 0.01 °C Schritten (`0x5403`)
+- Abfrage des Datenbereit-Status (`0x0202`)
+- Messwerte als 32-Bit IEEE-754 Float (CO₂, Temperatur, Luftfeuchte)
+- CRC8-Prüfung pro 16-Bit-Wort gemäß Sensirion-Datenblatt
 
 ---
 
-## 📊 Lüftungslogik (Beispiel)
+### Anzeige (OLED)
 
-| CO₂-Wert (ppm) | Status           | Anzeige                  |
-|----------------|------------------|--------------------------|
-| < 800          | Gut              | Grün / „Alles OK“        |
-| 800–1200       | Mittel           | Gelb / „Bald Lüften“     |
-| > 1200         | Schlecht         | Rot / „Bitte Lüften“     |
-
----
-
-## 🖥️ Anzeige auf dem 2.9"-Display
-
-Typisches Displaylayout:
-
-- CO₂-Wert (ppm)  
-- Temperatur (°C)  
-- Luftfeuchtigkeit (%)  
-- Lüftungsstatus (Text + Symbol)
+- CO₂-Wert in ppm  
+- Temperatur in °C  
+- Luftfeuchtigkeit in %  
+- Systemstatus (z. B. „BLE ACTIVE“)
 
 ---
 
-## ⚙️ Benötigte Libraries
+### Lüftungslogik
 
-Je nach Sensor und Display:
+| CO₂-Wert (ppm) | Status        | LED-Farbe | Verhalten |
+|----------------|---------------|-----------|-----------|
+| < 1000         | Gut           | Grün      | Kein Alarm |
+| 1000–1999      | Erhöht        | Gelb      | Hinweis |
+| 2000–2499      | Schlecht      | Rot       | Kein Ton |
+| ≥ 2500         | Kritisch      | Rot       | 3s Buzzer (einmalig) |
 
-- `Wire.h`  
-- `Adafruit_GFX`  
-- Display-Treiber (z. B. `Adafruit_ST7789`, Waveshare E-Paper etc.)  
-- CO₂-Sensor-Library (z. B. `Sensirion I2C SCD4x`)
-
----
-
-## ▶️ Setup / Installation in VS Code (PlatformIO)
-
-1. Git-Repository klonen  
-2. VS Code mit PlatformIO öffnen  
-3. Board auswählen: **ESP32 Dev Module**  
-4. Libraries über PlatformIO Library Manager installieren  
-5. Gerät via USB verbinden  
-6. Flashen  
-7. Messwerte & Display prüfen
+**Wichtig:**  
+Der Alarm wird **nur einmal ausgelöst**, solange der CO₂-Wert im kritischen Bereich bleibt  
+(Alarm-Latch). Erst wenn der CO₂-Wert wieder unter 2500 ppm fällt, kann ein neuer Alarm ausgelöst werden.
 
 ---
 
-## 🔧 Zukünftige Erweiterungen
+### Buzzer & Button
 
-- Webinterface (Streamlit)  
-- Logging / Speicherung (CSV, MQTT, HTTP)  
-- LED/Buzzer als zusätzlicher Alarm  
-- Energiesparmodi / Batteriebetrieb
+- Aktiver Buzzer, HIGH = Ton  
+- Alarmdauer: **3 Sekunden**
+- Button quittiert den Alarm dauerhaft  
+- Kein erneutes Piepen bei weiterhin hohem CO₂-Wert
 
+---
 
+### Bluetooth Low Energy (BLE)
+
+- Lokaler BLE-GATT-Server auf dem ESP32-C6
+- Eigener Service mit einer Notify-Characteristic
+- Übertragung der Messwerte als Text:
