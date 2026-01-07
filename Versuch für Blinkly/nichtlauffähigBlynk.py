@@ -1,10 +1,13 @@
+#Dieser code ist nicht lauffähig
+#Ledigliche Versuche für Verbindung via WLAN zur Speicherung / Darstellung der Werte 
+
 from machine import Pin, I2C
 import time, struct, network
 import ssd1306
 import BlynkLib
 
 WIFI_SSID = "lua"
-WIFI_PASS = "E9ED6FC7F9AE4BFD9B0A953129"
+WIFI_PASS = ""
 BLYNK_AUTH = "rY3teBBEHj-FndrEfXX-uuiZmSM7Jejl"
 
 MEASURE_INTERVAL = 2000
